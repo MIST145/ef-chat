@@ -37,7 +37,7 @@
           </message>
         </div>
       </div>
-      <div class="chat-input" v-show="showInput">
+      <div class="chat-input" v-show="showInput" @wheel.prevent="onWheel">
         <div>
           <textarea :class="{'empty-suggestions': emptySuggestions}"
                     v-model="message"
