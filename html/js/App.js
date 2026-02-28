@@ -57,7 +57,6 @@ window.APP = {
         return true;
       }
 
-      // const slashMessage = '/' + this.message;
       const slashMessage = this.message;
 
       const suggestionList = this.backingSuggestions.filter((el) => this.removedSuggestions.indexOf(el.name) <= -1);
@@ -119,7 +118,7 @@ window.APP = {
         return;
       }
       if (!suggestion.params) {
-        suggestion.params = []; //TODO Move somewhere else
+        suggestion.params = [];
       }
 
       if (this.removedSuggestions.find(a => a.name == suggestion.name)) {
@@ -240,6 +239,16 @@ window.APP = {
         }
       }, CONFIG.fadeTimeout);
     },
+    // Scroll do rato para navegar entre sugestões (quando a lista está visível)
+    onWheel(e) {
+      if (this.emptySuggestions) return;
+      e.preventDefault();
+      if (e.deltaY > 0) {
+        this.switchSuggestionDown();
+      } else {
+        this.switchSuggestionUp();
+      }
+    },
     keyUp(e) {
       this.resize();
       delete this.pressedKeys[e.which];
@@ -301,7 +310,6 @@ window.APP = {
         return;
       }
 
-      // const slashMessage = '/' + this.message;
       const slashMessage = this.message;
 
       const suggestionList = this.backingSuggestions.filter((el) => this.removedSuggestions.indexOf(el.name) <= -1);
@@ -332,7 +340,6 @@ window.APP = {
         return true;
       }
 
-      // const slashMessage = '/' + this.message;
       const slashMessage = this.message;
 
       const suggestionList = this.backingSuggestions.filter((el) => this.removedSuggestions.indexOf(el.name) <= -1);
@@ -359,7 +366,6 @@ window.APP = {
         return true;
       }
 
-      // const slashMessage = '/' + this.message;
       const slashMessage = this.message;
 
       const suggestionList = this.backingSuggestions.filter((el) => this.removedSuggestions.indexOf(el.name) <= -1);
@@ -387,5 +393,3 @@ window.APP = {
     },
   },
 };
-// print("ef-chat loaded made by suraj by ef ddevelopment")
-
