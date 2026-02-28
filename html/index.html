@@ -24,7 +24,11 @@
   <!-- App Template -->
   <script type="text/x-template" id="app_template">
     <div id="app">
-      <div class="chat-window" :style="this.style" :class="{ 'fadeOutUp animated': !showWindow, 'hidden': shouldHide }">
+
+      <!-- Chat Window -->
+      <div class="chat-window"
+           :style="this.style"
+           :class="['position-' + settingsPosition, { 'fadeOutUp animated': !showWindow, 'hidden': shouldHide }]">
         <div class="chat-messages" ref="messages">
           <message v-for="msg in messages"
                    :templates="templates"
@@ -37,7 +41,12 @@
           </message>
         </div>
       </div>
-      <div class="chat-input" v-show="showInput" @wheel.prevent="onWheel">
+
+      <!-- Chat Input -->
+      <div class="chat-input"
+           :class="['position-' + settingsPosition]"
+           v-show="showInput"
+           @wheel.prevent="onWheel">
         <div>
           <textarea :class="{'empty-suggestions': emptySuggestions}"
                     v-model="message"
@@ -54,12 +63,104 @@
                     @keydown.ctrl.up.prevent="switchSuggestionUp"
                     @keypress.enter.prevent="send">
           </textarea>
-          <!-- <i class="fa-solid fa-arrow-right-to-arc"></i> -->
           <div class="suggestion-slash">/</div>
         </div>
         <suggestions :message="message" :suggestions="suggestions" :selectedSuggestionIdx="selectedSuggestionIdx">
         </suggestions>
       </div>
+
+      <!-- SETTINGS PANEL OVERLAY -->
+      <div class="settings-overlay" v-if="showSettings">
+        <div class="settings-panel">
+
+          <div class="settings-header">
+            <span>&#9881; Configuracoes do Chat</span>
+            <button class="settings-close-btn" @click="closeSettings">&#10005;</button>
+          </div>
+
+          <!-- Position -->
+          <div class="settings-section">
+            <label class="section-label">Posicao do Chat</label>
+            <div class="position-options">
+              <div class="position-card" :class="{ active: settingsPosition === 'left' }" @click="settingsPosition = 'left'">
+                <div class="pos-preview pos-left"><div class="pos-bar"></div></div>
+                <span class="card-label">Esquerda</span>
+              </div>
+              <div class="position-card" :class="{ active: settingsPosition === 'right' }" @click="settingsPosition = 'right'">
+                <div class="pos-preview pos-right"><div class="pos-bar"></div></div>
+                <span class="card-label">Direita</span>
+              </div>
+              <div class="position-card" :class="{ active: settingsPosition === 'center' }" @click="settingsPosition = 'center'">
+                <div class="pos-preview pos-center"><div class="pos-bar"></div></div>
+                <span class="card-label">Centro</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Background Color -->
+          <div class="settings-section">
+            <label class="section-label">Cor de Fundo</label>
+            <div class="color-input-row">
+              <div class="color-swatch" :style="{ background: settingsBgColor }" @click="openColorPicker('bg')"></div>
+              <input type="text" class="hex-input" v-model="settingsBgColor" placeholder="#134855" @change="validateHexInput('bg')" />
+              <button class="cp-open-btn" @click="openColorPicker('bg')">Escolher</button>
+            </div>
+          </div>
+
+          <!-- Text Color -->
+          <div class="settings-section">
+            <label class="section-label">Cor do Texto</label>
+            <div class="color-input-row">
+              <div class="color-swatch" :style="{ background: settingsTextColor }" @click="openColorPicker('text')"></div>
+              <input type="text" class="hex-input" v-model="settingsTextColor" placeholder="#dcdcdc" @change="validateHexInput('text')" />
+              <button class="cp-open-btn" @click="openColorPicker('text')">Escolher</button>
+            </div>
+          </div>
+
+          <!-- Buttons -->
+          <div class="settings-actions">
+            <button class="btn-cancel" @click="closeSettings">Cancelar</button>
+            <button class="btn-save" @click="saveSettings">Guardar</button>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- COLOR PICKER MODAL -->
+      <div class="cp-overlay" v-if="showColorPicker">
+        <div class="cp-panel">
+
+          <div class="cp-header">Escolher Cor</div>
+
+          <!-- Gradient square -->
+          <div class="cp-gradient-wrap"
+               ref="cpGradient"
+               :style="{ background: 'hsl(' + cpHue + ', 100%, 50%)' }"
+               @mousedown="onCpGradientMousedown">
+            <div class="cp-gradient-white"></div>
+            <div class="cp-gradient-black"></div>
+            <div class="cp-dot" :style="{ left: cpSaturation + '%', top: (100 - cpBrightness) + '%' }"></div>
+          </div>
+
+          <!-- Hue slider -->
+          <div class="cp-hue-wrap">
+            <input type="range" min="0" max="360" :value="cpHue" @input="onCpHueInput" class="cp-hue-slider" />
+          </div>
+
+          <!-- Preview + hex -->
+          <div class="cp-bottom">
+            <div class="cp-preview" :style="{ background: cpHex }"></div>
+            <input type="text" class="cp-hex-input" v-model="cpHex" placeholder="#ffffff" @change="onCpHexInputChange" />
+          </div>
+
+          <div class="cp-actions">
+            <button class="btn-cancel" @click="closeColorPicker">Cancelar</button>
+            <button class="btn-save" @click="confirmColorPicker">Aplicar</button>
+          </div>
+
+        </div>
+      </div>
+
     </div>
   </script>
 
@@ -76,22 +177,12 @@
       <ul class="suggestions">
         <li class="suggestion" v-for="(s, i) in currentSuggestions" :class="{'selected': selectedSuggestionIdx === i}">
           <p>
-            <span :class="{ 'disabled': s.disabled }">
-              {{s.name}}
-            </span>
-            <span class="param"
-                  v-for="(p, index) in s.params"
-                  :class="{ 'disabled': p.disabled }">
-              [{{p.name}}]
-            </span>
+            <span :class="{ 'disabled': s.disabled }">{{s.name}}</span>
+            <span class="param" v-for="(p, index) in s.params" :class="{ 'disabled': p.disabled }">[{{p.name}}]</span>
           </p>
           <small class="help">
-            <template v-if="!s.disabled">
-              {{s.help}}
-            </template>
-            <template v-for="p in s.params" v-if="!p.disabled">
-              {{p.help}}
-            </template>
+            <template v-if="!s.disabled">{{s.help}}</template>
+            <template v-for="p in s.params" v-if="!p.disabled">{{p.help}}</template>
           </small>
         </li>
       </ul>
@@ -119,9 +210,7 @@
 
   window.emulate = (type, detail = {}) => {
     detail.type = type;
-    window.dispatchEvent(new CustomEvent('message', {
-      detail,
-    }));
+    window.dispatchEvent(new CustomEvent('message', { detail }));
   };
   </script>
 
