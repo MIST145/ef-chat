@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title></title>
+  <link href="vendor/latofonts.css" rel="stylesheet">
+  <link href="vendor/flexboxgrid.6.3.1.min.css" rel="stylesheet">
+  <link href="vendor/animate.3.5.2.min.css" rel="stylesheet">
+  <link href="./css/style.css" rel="stylesheet">
+
+  <script src="vendor/vue.2.3.3.min.js" type="text/javascript"></script>
+  <script src="./js/config.default.js" type="text/javascript"></script>
+  <script src="./js/config.js" type="text/javascript"></script>
+  <script src="https://code.jquery.com/jquery-1.12.4.js"></script>
+  <script src="https://kit.fontawesome.com/b63c2d8aaf.js" crossorigin="anonymous"></script>
+  <link rel="stylesheet" href="https://site-assets.fontawesome.com/releases/v6.4.2/css/all.css">
+  <link rel="stylesheet" href="https://site-assets.fontawesome.com/releases/v6.4.2/css/sharp-solid.css">
+  <link rel="stylesheet" href="https://site-assets.fontawesome.com/releases/v6.4.2/css/sharp-regular.css">
+  <link rel="stylesheet" href="https://site-assets.fontawesome.com/releases/v6.4.2/css/sharp-light.css">
+</head>
+<body>
+  <div id="app"></div>
+
+  <!-- ═══════════════════════════════════════════
+       App Template
+  ════════════════════════════════════════════ -->
+  <script type="text/x-template" id="app_template">
+    <div id="app">
+
+      <!-- ─── Chat Window ─────────────────────── -->
+      <div class="chat-window"
+           :style="this.style"
+           :class="['position-' + settingsPosition, { 'fadeOutUp animated': !showWindow, 'hidden': shouldHide }]">
+        <div class="chat-messages" ref="messages">
+          <message v-for="msg in messages"
+                   :templates="templates"
+                   :multiline="msg.multiline"
+                   :args="msg.args"
+                   :color="msg.color"
+                   :template="msg.template"
+                   :template-id="msg.templateId"
+                   :key="msg">
+          </message>
+        </div>
+      </div>
+
+      <!-- ─── Chat Input ───────────────────────
+           @wheel.prevent: scroll navega sugestões (quando visíveis).
+           v-show usa display:none → elemento oculto não recebe eventos de rato,
+           por isso o listener não interfere quando o input está escondido.
+      ──────────────────────────────────────── -->
+      <div class="chat-input"
+           :class="['position-' + settingsPosition]"
+           v-show="showInput"
+           @wheel.prevent="onWheel">
+        <div>
+          <textarea :class="{'empty-suggestions': emptySuggestions}"
+                    v-model="message"
+                    ref="input"
+                    type="text"
+                    placeholder="Type your command here..."
+                    autofocus
+                    spellcheck="false"
+                    @keyup.esc="hideInput"
+                    @keyup="keyUp"
+                    @keydown="keyDown"
+                    @keydown.tab.prevent="completeSuggestion"
+                    @keydown.ctrl.down.prevent="switchSuggestionDown"
+                    @keydown.ctrl.up.prevent="switchSuggestionUp"
+                    @keypress.enter.prevent="send">
+          </textarea>
+          <div class="suggestion-slash">/</div>
+        </div>
+        <suggestions :message="message"
+                     :suggestions="suggestions"
+                     :selectedSuggestionIdx="selectedSuggestionIdx">
+        </suggestions>
+      </div>
+
+      <!-- ═══════════════════════════════════════
+           SETTINGS PANEL OVERLAY
+      ════════════════════════════════════════ -->
+      <div class="settings-overlay" v-if="showSettings">
+        <div class="settings-panel">
+
+          <!-- Header -->
+          <div class="settings-header">
+            <span>&#9881; Configuracoes do Chat</span>
+            <button class="settings-close-btn" @click="closeSettings">&#10005;</button>
+          </div>
+
+          <!-- Secção: Posição -->
+          <div class="settings-section">
+            <label class="section-label">Posicao do Chat</label>
+            <div class="position-options">
+
+              <div class="position-card"
+                   :class="{ active: settingsPosition === 'left' }"
+                   @click="settingsPosition = 'left'">
+                <div class="pos-preview pos-left"><div class="pos-bar"></div></div>
+                <span class="card-label">Esquerda</span>
+              </div>
+
+              <div class="position-card"
+                   :class="{ active: settingsPosition === 'right' }"
+                   @click="settingsPosition = 'right'">
+                <div class="pos-preview pos-right"><div class="pos-bar"></div></div>
+                <span class="card-label">Direita</span>
+              </div>
+
+              <div class="position-card"
+                   :class="{ active: settingsPosition === 'center' }"
+                   @click="settingsPosition = 'center'">
+                <div class="pos-preview pos-center"><div class="pos-bar"></div></div>
+                <span class="card-label">Centro</span>
+              </div>
+
+            </div>
+          </div>
+
+          <!-- Secção: Cor de Fundo -->
+          <div class="settings-section">
+            <label class="section-label">Cor de Fundo</label>
+            <div class="color-input-row">
+              <div class="color-swatch"
+                   :style="{ background: settingsBgColor }"
+                   @click="openColorPicker('bg')">
+              </div>
+              <input type="text"
+                     class="hex-input"
+                     v-model="settingsBgColor"
+                     placeholder="#134855"
+                     @change="validateHexInput('bg')" />
+              <button class="cp-open-btn" @click="openColorPicker('bg')">Escolher</button>
+            </div>
+          </div>
+
+          <!-- Secção: Cor do Texto -->
+          <div class="settings-section">
+            <label class="section-label">Cor do Texto</label>
+            <div class="color-input-row">
+              <div class="color-swatch"
+                   :style="{ background: settingsTextColor }"
+                   @click="openColorPicker('text')">
+              </div>
+              <input type="text"
+                     class="hex-input"
+                     v-model="settingsTextColor"
+                     placeholder="#dcdcdc"
+                     @change="validateHexInput('text')" />
+              <button class="cp-open-btn" @click="openColorPicker('text')">Escolher</button>
+            </div>
+          </div>
+
+          <!-- Botões -->
+          <div class="settings-actions">
+            <button class="btn-cancel" @click="closeSettings">Cancelar</button>
+            <button class="btn-save"   @click="saveSettings">Guardar</button>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ═══════════════════════════════════════
+           COLOR PICKER MODAL
+      ════════════════════════════════════════ -->
+      <div class="cp-overlay" v-if="showColorPicker">
+        <div class="cp-panel">
+
+          <div class="cp-header">Escolher Cor</div>
+
+          <!-- Quadrado de gradiente:
+               fundo = matiz pura (hsl), sobreposição branco→transparente,
+               depois preto em baixo. O dot indica posição (saturação × brilho). -->
+          <div class="cp-gradient-wrap"
+               ref="cpGradient"
+               :style="{ background: 'hsl(' + cpHue + ', 100%, 50%)' }"
+               @mousedown="onCpGradientMousedown">
+            <div class="cp-gradient-white"></div>
+            <div class="cp-gradient-black"></div>
+            <div class="cp-dot"
+                 :style="{ left: cpSaturation + '%', top: (100 - cpBrightness) + '%' }">
+            </div>
+          </div>
+
+          <!-- Slider de matiz (arco-íris) -->
+          <div class="cp-hue-wrap">
+            <input type="range"
+                   min="0" max="360"
+                   :value="cpHue"
+                   @input="onCpHueInput"
+                   class="cp-hue-slider" />
+          </div>
+
+          <!-- Preview + Hex input
+               BUG CORRIGIDO: @change="onCpHexInputChange" — método com este nome
+               existe em App.js. Anteriormente podia haver divergência de nome. -->
+          <div class="cp-bottom">
+            <div class="cp-preview" :style="{ background: cpHex }"></div>
+            <input type="text"
+                   class="cp-hex-input"
+                   v-model="cpHex"
+                   placeholder="#ffffff"
+                   @change="onCpHexInputChange" />
+          </div>
+
+          <div class="cp-actions">
+            <button class="btn-cancel" @click="closeColorPicker">Cancelar</button>
+            <button class="btn-save"   @click="confirmColorPicker">Aplicar</button>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+  </script>
+
+  <!-- ═══════════════════════════════════════════
+       Message Template
+  ════════════════════════════════════════════ -->
+  <script type="text/x-template" id="message_template">
+    <div class="msg" :class="{ multiline }">
+      <span v-html="textEscaped"></span>
+    </div>
+  </script>
+
+  <!-- ═══════════════════════════════════════════
+       Suggestions Template
+  ════════════════════════════════════════════ -->
+  <script type="text/x-template" id="suggestions_template">
+    <div class="suggestions-wrap" v-show="currentSuggestions.length > 0">
+      <ul class="suggestions">
+        <li class="suggestion"
+            v-for="(s, i) in currentSuggestions"
+            :class="{ 'selected': selectedSuggestionIdx === i }">
+          <p>
+            <span :class="{ 'disabled': s.disabled }">
+              {{s.name}}
+            </span>
+            <span class="param"
+                  v-for="(p, index) in s.params"
+                  :class="{ 'disabled': p.disabled }">
+              [{{p.name}}]
+            </span>
+          </p>
+          <small class="help">
+            <template v-if="!s.disabled">{{s.help}}</template>
+            <template v-for="p in s.params" v-if="!p.disabled">{{p.help}}</template>
+          </small>
+        </li>
+      </ul>
+    </div>
+  </script>
+
+  <!-- Scripts -->
+  <script type="text/javascript" src="./js/Suggestions.js"></script>
+  <script type="text/javascript" src="./js/Message.js"></script>
+  <script type="text/javascript" src="./js/App.js"></script>
+
+  <!-- Entry point -->
+  <script type="text/javascript">
+  window.post = (url, data) => {
+    var request = new XMLHttpRequest();
+    request.open('POST', url, true);
+    request.setRequestHeader('Content-Type', 'application/json; charset=UTF-8');
+    request.send(data);
+  }
+
+  const instance = new Vue({
+    el: '#app',
+    render: h => h(APP),
+  });
+
+  window.emulate = (type, detail = {}) => {
+    detail.type = type;
+    window.dispatchEvent(new CustomEvent('message', { detail }));
+  };
+  </script>
+
+</body>
+</html>
